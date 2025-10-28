@@ -91,7 +91,7 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Resource URL</th>
+                        <th>Resource</th>
                         <th>Status</th>
                         <th>Download Size</th>
                         <th>Content Encoding</th>
@@ -148,13 +148,13 @@
             return entry.transferSize > 0 ? "No" : "Unknown";
         }
 
-        function appendResultRow({ url, status, size, encoding, downloadDuration, overallDuration, protocol, cached, error }) {
+        function appendResultRow({ resource, status, size, encoding, downloadDuration, overallDuration, protocol, cached, error }) {
             const row = document.createElement("tr");
             if (error) {
                 row.classList.add("error");
             }
             const cells = [
-                url,
+                resource,
                 error ? `${status} (${error})` : String(status),
                 formatBytes(size),
                 encoding || "n/a",
@@ -183,7 +183,7 @@
         }
 
         // Handle button clicks to fetch the requested script for CDT testing
-        async function loadScript(url) {
+        async function loadScript(url, resourceLabel) {
             performance.clearResourceTimings();
             try {
                 const response = await fetch(url);
@@ -191,14 +191,14 @@
                     throw new Error(`Request failed with status ${response.status}`);
                 }
                 const content = await response.text();
-                console.info("Loaded script", { url, size: content.length });
+                console.info("Loaded script", { url, size: content.length, resource: resourceLabel });
                 const entry = await getResourceTimingEntry(url);
                 const contentEncoding = entry.contentEncoding || response.headers.get("content-encoding") || "n/a";
                 const headerSize = Number(response.headers.get("content-length"));
                 const downloadSize = entry ? entry.transferSize || entry.encodedBodySize : Number.isFinite(headerSize) ? headerSize : NaN;
                 const downloadDuration = entry ? entry.responseEnd - entry.requestStart : NaN;
                 appendResultRow({
-                    url,
+                    resource: resourceLabel,
                     status: response.status,
                     size: downloadSize,
                     encoding: contentEncoding,
@@ -212,7 +212,7 @@
                 const entry = await getResourceTimingEntry(url);
                 const downloadDuration = entry ? entry.responseEnd - entry.requestStart : NaN;
                 appendResultRow({
-                    url,
+                    resource: resourceLabel,
                     status: "Error",
                     size: entry ? entry.transferSize || entry.encodedBodySize : NaN,
                     encoding: "n/a",
@@ -225,8 +225,8 @@
             }
         }
 
-        document.getElementById("init-base-btn")?.addEventListener("click", () => loadScript(baseUrl));
-        document.getElementById("load-diff-btn")?.addEventListener("click", () => loadScript(diffUrl));
+        document.getElementById("init-base-btn")?.addEventListener("click", () => loadScript(baseUrl, "Base file"));
+        document.getElementById("load-diff-btn")?.addEventListener("click", () => loadScript(diffUrl, "Diff file"));
     </script>
 </body>
 </html>

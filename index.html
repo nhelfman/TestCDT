@@ -12,7 +12,7 @@
             background-color: #f4f4f4;
         }
         .container {
-            max-width: 800px;
+            max-width: 1000px;
             margin: 0 auto;
             background-color: white;
             padding: 20px;
@@ -80,10 +80,14 @@
             <p><strong>Note:</strong> If devtools is open - ensure that "Disabled cache" is not checked</p>
         </div>
 
+        <div class="highlight">
+            <p><strong>Note:</strong>Clear browser cache before testing ("Empty cache and hard refresh")</p>
+        </div>
+
         <h2>Tests</h2>
         <p>Use these buttons to manually load the baseline and diff scripts.</p>
         <div class="button-group">
-            <button id="init-base-btn">Initialize Base File</button>
+            <button id="init-base-btn">Load Base File</button>
             <button id="load-diff-btn">Load Diff File</button>
         </div>
         <div id="request-results">
@@ -91,10 +95,11 @@
             <table>
                 <thead>
                     <tr>
-                        <th>Sequence</th>
+                        <th>#</th>
                         <th>Resource</th>
                         <th>Status</th>
                         <th>Download Size</th>
+                        <th>Uncompressed Size</th>
                         <th>Content Encoding</th>
                         <th>Download Duration</th>
                         <th>Overall Duration</th>
@@ -151,7 +156,7 @@
 
         let sequenceCounter = 1;
 
-        function appendResultRow({ resource, status, size, encoding, downloadDuration, overallDuration, protocol, cached, error }) {
+        function appendResultRow({ resource, status, downloadSize, uncompressedSize, encoding, downloadDuration, overallDuration, protocol, cached, error }) {
             const row = document.createElement("tr");
             if (error) {
                 row.classList.add("error");
@@ -162,7 +167,8 @@
                 rowNumber,
                 resource,
                 error ? `${status} (${error})` : String(status),
-                formatBytes(size),
+                formatBytes(downloadSize),
+                formatBytes(uncompressedSize),
                 encoding || "n/a",
                 formatDuration(downloadDuration),
                 formatDuration(overallDuration),
@@ -202,11 +208,13 @@
                 const contentEncoding = entry.contentEncoding || response.headers.get("content-encoding") || "n/a";
                 const headerSize = Number(response.headers.get("content-length"));
                 const downloadSize = entry ? entry.transferSize || entry.encodedBodySize : Number.isFinite(headerSize) ? headerSize : NaN;
+                const uncompressedSize = entry?.decodedBodySize ?? new TextEncoder().encode(content).length;
                 const downloadDuration = entry ? entry.responseEnd - entry.requestStart : NaN;
                 appendResultRow({
                     resource: resourceLabel,
                     status: response.status,
-                    size: downloadSize,
+                    downloadSize,
+                    uncompressedSize,
                     encoding: contentEncoding,
                     downloadDuration,
                     overallDuration: entry?.duration,
@@ -220,7 +228,8 @@
                 appendResultRow({
                     resource: resourceLabel,
                     status: "Error",
-                    size: entry ? entry.transferSize || entry.encodedBodySize : NaN,
+                    downloadSize: entry ? entry.transferSize || entry.encodedBodySize : NaN,
+                    uncompressedSize: entry?.decodedBodySize ?? NaN,
                     encoding: "n/a",
                     downloadDuration,
                     overallDuration: entry?.duration,

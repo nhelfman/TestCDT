@@ -42,9 +42,33 @@
         }
         .button-group {
             display: grid;
-            grid-template-columns: 1fr;
-            gap: 10px;
-            max-width: 260px;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            max-width: 480px;
+        }
+        .button-group button {
+            padding: 12px 16px;
+            border: none;
+            border-radius: 8px;
+            background: linear-gradient(135deg, #4c8bf5, #316dd9);
+            color: #fff;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.15s ease, box-shadow 0.15s ease, background 0.3s ease;
+        }
+        .button-group button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 6px 16px rgba(49, 109, 217, 0.35);
+            background: linear-gradient(135deg, #5a95f7, #3776df);
+        }
+        .button-group button:active {
+            transform: translateY(0);
+            box-shadow: 0 3px 10px rgba(49, 109, 217, 0.3);
+        }
+        .button-group button:focus-visible {
+            outline: 3px solid rgba(76, 139, 245, 0.6);
+            outline-offset: 2px;
         }
         #wscdt-options {
             display: grid;

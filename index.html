@@ -42,6 +42,31 @@
             gap: 10px;
             max-width: 260px;
         }
+        #request-results {
+            margin-top: 24px;
+        }
+        #request-results table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        #request-results th,
+        #request-results td {
+            border: 1px solid #ddd;
+            padding: 8px;
+            text-align: left;
+        }
+        #request-results th {
+            background-color: #f0f0f0;
+        }
+        #request-results tbody tr:nth-child(even) {
+            background-color: #fafafa;
+        }
+        #request-results td:first-child {
+            word-break: break-all;
+        }
+        #request-results tbody tr.error {
+            background-color: #fdecea;
+        }
     </style>
 </head>
 <body>
@@ -61,6 +86,23 @@
             <button id="init-base-btn">Initialize Base File</button>
             <button id="load-diff-btn">Load Diff File</button>
         </div>
+        <div id="request-results">
+            <h3>Request Results</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th>Resource URL</th>
+                        <th>Status</th>
+                        <th>Download Size</th>
+                        <th>Content Encoding</th>
+                        <th>Download Duration</th>
+                        <th>Protocol</th>
+                        <th>Cached</th>
+                    </tr>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </div>
         
         <!-- <h2>Getting Started</h2>
         <p>You can modify this HTML file to add your own content, images, links, and additional styling. The basic structure is already in place to help you get started quickly.</p> -->
@@ -73,8 +115,74 @@
         const baseUrl = "https://res-1.cdn.office.net/officeonline/x/s/h50cbc114b9e53a44__layouts/App_Scripts/EwaTS.edt.js?wscdt=1";
         const diffUrl = "https://res-1.cdn.office.net/officeonline/x/s/h463f27086a6f058f__layouts/App_Scripts/EwaTS.edt.js?wscdt=1";
 
+        const resultsBody = document.querySelector("#request-results tbody");
+
+        function formatBytes(bytes) {
+            if (!Number.isFinite(bytes) || bytes < 0) {
+                return "n/a";
+            }
+            if (bytes === 0) {
+                return "0 B";
+            }
+            const units = ["B", "KB", "MB", "GB"];
+            const index = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
+            const value = bytes / Math.pow(1024, index);
+            return `${value.toFixed(2)} ${units[index]}`;
+        }
+
+        function formatDuration(duration) {
+            if (!Number.isFinite(duration) || duration < 0) {
+                return "n/a";
+            }
+            return `${duration.toFixed(2)} ms`;
+        }
+
+        function cacheLabel(entry) {
+            if (!entry) {
+                return "Unknown";
+            }
+            if (entry.transferSize === 0 && entry.encodedBodySize > 0) {
+                return "Yes";
+            }
+            return entry.transferSize > 0 ? "No" : "Unknown";
+        }
+
+        function appendResultRow({ url, status, size, encoding, duration, protocol, cached, error }) {
+            const row = document.createElement("tr");
+            if (error) {
+                row.classList.add("error");
+            }
+            const cells = [
+                url,
+                error ? `${status} (${error})` : String(status),
+                formatBytes(size),
+                encoding || "n/a",
+                formatDuration(duration),
+                protocol || "n/a",
+                cached
+            ];
+            for (const value of cells) {
+                const cell = document.createElement("td");
+                cell.textContent = value;
+                row.appendChild(cell);
+            }
+            resultsBody.prepend(row);
+        }
+
+        async function getResourceTimingEntry(url, retries = 5) {
+            for (let attempt = 0; attempt < retries; attempt += 1) {
+                const entries = performance.getEntriesByName(url, "resource");
+                if (entries.length > 0) {
+                    return entries[entries.length - 1];
+                }
+                await new Promise((resolve) => setTimeout(resolve, 50));
+            }
+            return null;
+        }
+
         // Handle button clicks to fetch the requested script for CDT testing
         async function loadScript(url) {
+            performance.clearResourceTimings();
             try {
                 const response = await fetch(url);
                 if (!response.ok) {
@@ -82,8 +190,32 @@
                 }
                 const content = await response.text();
                 console.info("Loaded script", { url, size: content.length });
+                const entry = await getResourceTimingEntry(url);
+                const contentEncoding = entry.contentEncoding || response.headers.get("content-encoding") || "n/a";
+                const headerSize = Number(response.headers.get("content-length"));
+                const downloadSize = entry ? entry.transferSize || entry.encodedBodySize : Number.isFinite(headerSize) ? headerSize : NaN;
+                appendResultRow({
+                    url,
+                    status: response.status,
+                    size: downloadSize,
+                    encoding: contentEncoding,
+                    duration: entry?.duration,
+                    protocol: entry?.nextHopProtocol,
+                    cached: cacheLabel(entry)
+                });
             } catch (error) {
                 console.error("Failed to load script", { url, error });
+                const entry = await getResourceTimingEntry(url);
+                appendResultRow({
+                    url,
+                    status: "Error",
+                    size: entry ? entry.transferSize || entry.encodedBodySize : NaN,
+                    encoding: "n/a",
+                    duration: entry?.duration,
+                    protocol: entry?.nextHopProtocol,
+                    cached: cacheLabel(entry),
+                    error: error instanceof Error ? error.message : "Unknown error"
+                });
             }
         }
 

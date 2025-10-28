@@ -36,6 +36,10 @@
             border-left: 4px solid #2196F3;
             margin: 20px 0;
         }
+        .highlight-group {
+            background-color: #e6f6e6;
+            border-left-color: #2e7d32;
+        }
         .button-group {
             display: grid;
             grid-template-columns: 1fr;
@@ -79,7 +83,7 @@
         <h1>CDT test Page</h1>
         
         <h2>About This Page</h2>
-        <p>This is a test page for the testing CDT behavior (Compression Dictionary Transport).</p>
+        <p>This is a test page for the testing CDT (Compression Dictionary Transport) behavior.</p>
         
         <div class="highlight">
             <p><strong>Note:</strong> If devtools is open - ensure that "Disabled cache" is not checked</p>
@@ -89,7 +93,7 @@
             <p><strong>Note:</strong>Clear browser cache before testing ("Empty cache and hard refresh")</p>
         </div>
 
-        <div class="highlight">
+        <div class="highlight highlight-group">
             <strong>CDT Group Selector:</strong>
             <div id="wscdt-options">
                 <label><input type="radio" name="wscdt-group" value="1" checked> CDT experiment (Treatment group)</label>
@@ -118,7 +122,7 @@
                         <th>Download Duration</th>
                         <th>Overall Duration</th>
                         <th>Protocol</th>
-                        <th>Cached</th>
+                        <th>Delivery</th>
                     </tr>
                 </thead>
                 <tbody></tbody>
@@ -183,10 +187,16 @@
             if (!entry) {
                 return "Unknown";
             }
-            if (entry.transferSize === 0 && entry.encodedBodySize > 0) {
-                return "Yes";
+
+            if (entry.deliveryType === "cache") {
+                return "cache";
             }
-            return entry.transferSize > 0 ? "No" : "Unknown";
+
+            if (entry.transferSize === 0 && entry.encodedBodySize > 0) {
+                return "cache";
+            }
+
+            return entry.transferSize > 0 ? "-" : "Unknown";
         }
 
         let sequenceCounter = 1;

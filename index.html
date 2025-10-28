@@ -86,12 +86,15 @@
         <p>This is a test page for the testing CDT (Compression Dictionary Transport) behavior.</p>
         
         <div class="highlight">
-            <p><strong>Note:</strong> If devtools is open - ensure that "Disabled cache" is not checked</p>
+            <p><strong>Tips:</strong></p>
+            <ul>
+                <li>Clear browser cache before testing ("Empty cache and hard refresh")</li>
+                <li>If devtools is open – ensure that "Disable cache" is not checked</li>
+                <li>To view Content-Encoding - enable "Experimental Web Platform features" in your browser flags (about:flags)</li>
+                <li>Use throttling in devtools to simulate slower network conditions</li>
+            </ul>
         </div>
 
-        <div class="highlight">
-            <p><strong>Note:</strong>Clear browser cache before testing ("Empty cache and hard refresh")</p>
-        </div>
 
         <div class="highlight highlight-group">
             <strong>CDT Group Selector:</strong>
@@ -255,7 +258,7 @@
                 const headerSize = Number(response.headers.get("content-length"));
                 const downloadSize = entry ? entry.transferSize || entry.encodedBodySize : Number.isFinite(headerSize) ? headerSize : NaN;
                 const uncompressedSize = entry?.decodedBodySize ?? new TextEncoder().encode(content).length;
-                const downloadDuration = entry ? entry.responseEnd - entry.requestStart : NaN;
+                const downloadDuration = entry ? entry.responseEnd - entry.responseStart : NaN;
                 appendResultRow({
                     resource: resourceLabel,
                     group: groupLabel,
@@ -271,7 +274,7 @@
             } catch (error) {
                 console.error("Failed to load script", { url, error });
                 const entry = await getResourceTimingEntry(url);
-                const downloadDuration = entry ? entry.responseEnd - entry.requestStart : NaN;
+                const downloadDuration = entry ? entry.responseEnd - entry.responseStart : NaN;
                 appendResultRow({
                     resource: resourceLabel,
                     group: groupLabel,

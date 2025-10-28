@@ -96,6 +96,7 @@
                         <th>Download Size</th>
                         <th>Content Encoding</th>
                         <th>Download Duration</th>
+                        <th>Overall Duration</th>
                         <th>Protocol</th>
                         <th>Cached</th>
                     </tr>
@@ -147,7 +148,7 @@
             return entry.transferSize > 0 ? "No" : "Unknown";
         }
 
-        function appendResultRow({ url, status, size, encoding, duration, protocol, cached, error }) {
+        function appendResultRow({ url, status, size, encoding, downloadDuration, overallDuration, protocol, cached, error }) {
             const row = document.createElement("tr");
             if (error) {
                 row.classList.add("error");
@@ -157,7 +158,8 @@
                 error ? `${status} (${error})` : String(status),
                 formatBytes(size),
                 encoding || "n/a",
-                formatDuration(duration),
+                formatDuration(downloadDuration),
+                formatDuration(overallDuration),
                 protocol || "n/a",
                 cached
             ];
@@ -191,27 +193,31 @@
                 const content = await response.text();
                 console.info("Loaded script", { url, size: content.length });
                 const entry = await getResourceTimingEntry(url);
-                const contentEncoding = entry.contentEncoding || response.headers.get("content-encoding") || "n/a";
+                const contentEncoding = response.headers.get("content-encoding") || "n/a";
                 const headerSize = Number(response.headers.get("content-length"));
                 const downloadSize = entry ? entry.transferSize || entry.encodedBodySize : Number.isFinite(headerSize) ? headerSize : NaN;
+                const downloadDuration = entry ? entry.responseEnd - entry.requestStart : NaN;
                 appendResultRow({
                     url,
                     status: response.status,
                     size: downloadSize,
                     encoding: contentEncoding,
-                    duration: entry?.duration,
+                    downloadDuration,
+                    overallDuration: entry?.duration,
                     protocol: entry?.nextHopProtocol,
                     cached: cacheLabel(entry)
                 });
             } catch (error) {
                 console.error("Failed to load script", { url, error });
                 const entry = await getResourceTimingEntry(url);
+                const downloadDuration = entry ? entry.responseEnd - entry.requestStart : NaN;
                 appendResultRow({
                     url,
                     status: "Error",
                     size: entry ? entry.transferSize || entry.encodedBodySize : NaN,
                     encoding: "n/a",
-                    duration: entry?.duration,
+                    downloadDuration,
+                    overallDuration: entry?.duration,
                     protocol: entry?.nextHopProtocol,
                     cached: cacheLabel(entry),
                     error: error instanceof Error ? error.message : "Unknown error"

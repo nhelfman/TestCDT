@@ -193,7 +193,7 @@
                 const content = await response.text();
                 console.info("Loaded script", { url, size: content.length });
                 const entry = await getResourceTimingEntry(url);
-                const contentEncoding = response.headers.get("content-encoding") || "n/a";
+                const contentEncoding = entry.contentEncoding || response.headers.get("content-encoding") || "n/a";
                 const headerSize = Number(response.headers.get("content-length"));
                 const downloadSize = entry ? entry.transferSize || entry.encodedBodySize : Number.isFinite(headerSize) ? headerSize : NaN;
                 const downloadDuration = entry ? entry.responseEnd - entry.requestStart : NaN;

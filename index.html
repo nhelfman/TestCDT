@@ -61,7 +61,7 @@
         #request-results tbody tr:nth-child(even) {
             background-color: #fafafa;
         }
-        #request-results td:first-child {
+        #request-results td:nth-child(2) {
             word-break: break-all;
         }
         #request-results tbody tr.error {
@@ -91,6 +91,7 @@
             <table>
                 <thead>
                     <tr>
+                        <th>Sequence</th>
                         <th>Resource</th>
                         <th>Status</th>
                         <th>Download Size</th>
@@ -148,12 +149,17 @@
             return entry.transferSize > 0 ? "No" : "Unknown";
         }
 
+        let sequenceCounter = 1;
+
         function appendResultRow({ resource, status, size, encoding, downloadDuration, overallDuration, protocol, cached, error }) {
             const row = document.createElement("tr");
             if (error) {
                 row.classList.add("error");
             }
+            const rowNumber = sequenceCounter;
+            sequenceCounter += 1;
             const cells = [
+                rowNumber,
                 resource,
                 error ? `${status} (${error})` : String(status),
                 formatBytes(size),
@@ -168,7 +174,7 @@
                 cell.textContent = value;
                 row.appendChild(cell);
             }
-            resultsBody.prepend(row);
+            resultsBody.appendChild(row);
         }
 
         async function getResourceTimingEntry(url, retries = 5) {

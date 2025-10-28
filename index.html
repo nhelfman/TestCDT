@@ -12,7 +12,7 @@
             background-color: #f4f4f4;
         }
         .container {
-            max-width: 1000px;
+            max-width: 1200px;
             margin: 0 auto;
             background-color: white;
             padding: 20px;
@@ -42,6 +42,11 @@
             gap: 10px;
             max-width: 260px;
         }
+        #wscdt-options {
+            display: grid;
+            gap: 6px;
+            margin-top: 8px;
+        }
         #request-results {
             margin-top: 24px;
         }
@@ -61,7 +66,7 @@
         #request-results tbody tr:nth-child(even) {
             background-color: #fafafa;
         }
-        #request-results td:nth-child(2) {
+        #request-results td:nth-child(3) {
             word-break: break-all;
         }
         #request-results tbody tr.error {
@@ -84,6 +89,14 @@
             <p><strong>Note:</strong>Clear browser cache before testing ("Empty cache and hard refresh")</p>
         </div>
 
+        <div class="highlight">
+            <strong>CDT Group Selector:</strong>
+            <div id="wscdt-options">
+                <label><input type="radio" name="wscdt-group" value="1" checked> CDT experiment (Treatment group)</label>
+                <label><input type="radio" name="wscdt-group" value="2"> No CDT (Control group)</label>
+            </div>
+        </div>
+
         <h2>Tests</h2>
         <p>Use these buttons to manually load the baseline and diff scripts.</p>
         <div class="button-group">
@@ -97,6 +110,7 @@
                     <tr>
                         <th>#</th>
                         <th>Resource</th>
+                        <th>Group</th>
                         <th>Status</th>
                         <th>Download Size</th>
                         <th>Uncompressed Size</th>
@@ -122,8 +136,26 @@
         // const baseUrl = "https://res-1.cdn.office.net/officeonline/x/s/h50cbc114b9e53a44__layouts/App_Scripts/EwaTS.edt.js?wscdt=1";
         // const diffUrl = "https://res-1.cdn.office.net/officeonline/x/s/h463f27086a6f058f__layouts/App_Scripts/EwaTS.edt.js?wscdt=1";
         
-        const baseUrl = "https://res-1.cdn.office.net/officeonline/x/s/h8e011a6153d55ce7__layouts/App_Scripts/EwaTS.ctxm.js?wscdt=1";
-        const diffUrl = "https://res-1.cdn.office.net/officeonline/x/s/h631431c7c9cabefb__layouts/App_Scripts/EwaTS.ctxm.js?wscdt=1";
+        const baseUrl = "https://res-1.cdn.office.net/officeonline/x/s/h8e011a6153d55ce7__layouts/App_Scripts/EwaTS.ctxm.js";
+        const diffUrl = "https://res-1.cdn.office.net/officeonline/x/s/h631431c7c9cabefb__layouts/App_Scripts/EwaTS.ctxm.js";
+        const wscdtRadios = document.querySelectorAll("input[name='wscdt-group']");
+
+        function getSelectedWscdtValue() {
+            for (const radio of wscdtRadios) {
+                if (radio.checked) {
+                    return radio.value === "2" ? "2" : "1";
+                }
+            }
+            return "1";
+        }
+
+        function groupLabelFromValue(value) {
+            return value === "2" ? "Control" : "CDT";
+        }
+
+        function buildUrl(url, value) {
+            return `${url}?wscdt=${value}`;
+        }
 
         const resultsBody = document.querySelector("#request-results tbody");
 
@@ -159,7 +191,7 @@
 
         let sequenceCounter = 1;
 
-        function appendResultRow({ resource, status, downloadSize, uncompressedSize, encoding, downloadDuration, overallDuration, protocol, cached, error }) {
+        function appendResultRow({ resource, group, status, downloadSize, uncompressedSize, encoding, downloadDuration, overallDuration, protocol, cached, error }) {
             const row = document.createElement("tr");
             if (error) {
                 row.classList.add("error");
@@ -169,6 +201,7 @@
             const cells = [
                 rowNumber,
                 resource,
+                group,
                 error ? `${status} (${error})` : String(status),
                 formatBytes(downloadSize),
                 formatBytes(uncompressedSize),
@@ -198,7 +231,7 @@
         }
 
         // Handle button clicks to fetch the requested script for CDT testing
-        async function loadScript(url, resourceLabel) {
+        async function loadScript(url, resourceLabel, groupLabel) {
             performance.clearResourceTimings();
             try {
                 const response = await fetch(url);
@@ -206,7 +239,7 @@
                     throw new Error(`Request failed with status ${response.status}`);
                 }
                 const content = await response.text();
-                console.info("Loaded script", { url, size: content.length, resource: resourceLabel });
+                console.info("Loaded script", { url, size: content.length, resource: resourceLabel, group: groupLabel });
                 const entry = await getResourceTimingEntry(url);
                 const contentEncoding = entry.contentEncoding || response.headers.get("content-encoding") || "n/a";
                 const headerSize = Number(response.headers.get("content-length"));
@@ -215,6 +248,7 @@
                 const downloadDuration = entry ? entry.responseEnd - entry.requestStart : NaN;
                 appendResultRow({
                     resource: resourceLabel,
+                    group: groupLabel,
                     status: response.status,
                     downloadSize,
                     uncompressedSize,
@@ -230,6 +264,7 @@
                 const downloadDuration = entry ? entry.responseEnd - entry.requestStart : NaN;
                 appendResultRow({
                     resource: resourceLabel,
+                    group: groupLabel,
                     status: "Error",
                     downloadSize: entry ? entry.transferSize || entry.encodedBodySize : NaN,
                     uncompressedSize: entry?.decodedBodySize ?? NaN,
@@ -243,8 +278,14 @@
             }
         }
 
-        document.getElementById("init-base-btn")?.addEventListener("click", () => loadScript(baseUrl, "Base file"));
-        document.getElementById("load-diff-btn")?.addEventListener("click", () => loadScript(diffUrl, "Diff file"));
+        document.getElementById("init-base-btn")?.addEventListener("click", () => {
+            const value = getSelectedWscdtValue();
+            loadScript(buildUrl(baseUrl, value), "Base file", groupLabelFromValue(value));
+        });
+        document.getElementById("load-diff-btn")?.addEventListener("click", () => {
+            const value = getSelectedWscdtValue();
+            loadScript(buildUrl(diffUrl, value), "Diff file", groupLabelFromValue(value));
+        });
     </script>
 </body>
 </html>

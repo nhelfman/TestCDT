@@ -36,6 +36,12 @@
             border-left: 4px solid #2196F3;
             margin: 20px 0;
         }
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 10px;
+            max-width: 260px;
+        }
     </style>
 </head>
 <body>
@@ -51,7 +57,7 @@
 
         <h2>Tests</h2>
         <p>Use these buttons to manually load the baseline and diff scripts.</p>
-        <div>
+        <div class="button-group">
             <button id="init-base-btn">Initialize Base File</button>
             <button id="load-diff-btn">Load Diff File</button>
         </div>

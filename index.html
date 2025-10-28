@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>My Simple HTML Page</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background-color: #f4f4f4;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            text-align: center;
+        }
+        h2 {
+            color: #666;
+        }
+        p {
+            line-height: 1.6;
+            color: #555;
+        }
+        .highlight {
+            background-color: #e7f3ff;
+            padding: 15px;
+            border-left: 4px solid #2196F3;
+            margin: 20px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>CDT test Page</h1>
+        
+        <h2>About This Page</h2>
+        <p>This is a test page for the testing CDT behavior (Compression Dictionary Transport).</p>
+        
+        <div class="highlight">
+            <p><strong>Note:</strong> If devtools is open - ensure that "Disabled cache" is not checked</p>
+        </div>
+
+        <h2>Tests</h2>
+        <p>Use these buttons to manually load the baseline and diff scripts.</p>
+        <div>
+            <button id="init-base-btn">Initialize Base File</button>
+            <button id="load-diff-btn">Load Diff File</button>
+        </div>
+        
+        <!-- <h2>Getting Started</h2>
+        <p>You can modify this HTML file to add your own content, images, links, and additional styling. The basic structure is already in place to help you get started quickly.</p> -->
+        
+        <footer>
+            <p><em>Created on October 28, 2025</em></p>
+        </footer>
+    </div>
+    <script>
+        const baseUrl = "https://res-1.cdn.office.net/officeonline/x/s/h50cbc114b9e53a44__layouts/App_Scripts/EwaTS.edt.js?wscdt=1";
+        const diffUrl = "https://res-1.cdn.office.net/officeonline/x/s/h463f27086a6f058f__layouts/App_Scripts/EwaTS.edt.js?wscdt=1";
+
+        // Handle button clicks to fetch the requested script for CDT testing
+        async function loadScript(url) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`Request failed with status ${response.status}`);
+                }
+                const content = await response.text();
+                console.info("Loaded script", { url, size: content.length });
+            } catch (error) {
+                console.error("Failed to load script", { url, error });
+            }
+        }
+
+        document.getElementById("init-base-btn")?.addEventListener("click", () => loadScript(baseUrl));
+        document.getElementById("load-diff-btn")?.addEventListener("click", () => loadScript(diffUrl));
+    </script>
+</body>
+</html>

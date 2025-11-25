@@ -4,9 +4,12 @@ import * as path from 'path';
 import * as os from 'os';
 import { execSync } from 'child_process';
 
+// TO run the test:
+// $ CDT_CACHE_DIR=$HOME/throttled_io /usr/bin/npm test
+
 // Configuration
 const TEST_PAGE_URL = '/cdt-test.html';
-const ITERATIONS = 2;
+const ITERATIONS = 10;
 const USER_DATA_DIR = path.join(os.tmpdir(), 'cdt-test-profile');
 const CACHE_DIR = process.env.CDT_CACHE_DIR || path.join(USER_DATA_DIR, 'Cache');
 
@@ -258,9 +261,12 @@ function formatReport(
 }
 
 test.describe('CDT Performance Test', () => {
-  test('Run CDT performance test iterations', async ({}, testInfo) => {
-    // Get base URL from test config
-    const baseURL = testInfo.project.use.baseURL || 'http://localhost:8080';
+  // Use a fixed baseURL since we're manually managing browser instances
+  const BASE_URL = 'http://localhost:8080';
+  
+  test('Run CDT performance test iterations', async () => {
+    // Use fixed base URL
+    const baseURL = BASE_URL;
     
     const allResults: IterationResults[] = [];
     const baseCacheTimes: number[] = [];

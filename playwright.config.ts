@@ -10,11 +10,11 @@ export default defineConfig({
     ['html', { open: 'never' }],
     ['list']
   ],
-  timeout: 120000, // 2 minutes per test
+  timeout: 5 * 60 * 1000, // 5 minutes per test
   use: {
     baseURL: 'http://localhost:8080',
-    trace: 'on-first-retry',
-    screenshot: 'only-on-failure',
+    trace: 'off', // Disabled because we manually launch browsers
+    screenshot: 'off', // Disabled because we manually launch browsers
   },
   projects: [
     {

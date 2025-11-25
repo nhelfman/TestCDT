@@ -2,11 +2,19 @@
 
 # Setup throttled I/O directory with configurable delay
 # Usage: ./setup-throttled-io.sh [delay_ms]
+#        ./setup-throttled-io.sh --cleanup
 # Default delay is 5ms
 
 set -e
 
-DELAY_MS=${1:-5}
+# Check for cleanup option
+if [ "$1" = "--cleanup" ] || [ "$1" = "-c" ]; then
+    CLEANUP_MODE=true
+    DELAY_MS=0
+else
+    CLEANUP_MODE=false
+    DELAY_MS=${1:-5}
+fi
 MOUNT_POINT="$HOME/throttled_io"
 IMG_FILE="/tmp/throttled.img"
 IMG_SIZE_MB=100
@@ -54,6 +62,30 @@ cleanup_existing() {
             sudo losetup -d "$LOOP_DEV" || log_warn "Failed to detach loop device"
         fi
     fi
+}
+
+cleanup_all() {
+    log_info "Performing full cleanup..."
+
+    cleanup_existing
+
+    # Remove image file
+    if [ -f "$IMG_FILE" ]; then
+        log_info "Removing image file $IMG_FILE..."
+        sudo rm -f "$IMG_FILE"
+    fi
+
+    # Remove mount point directory if empty
+    if [ -d "$MOUNT_POINT" ]; then
+        if [ -z "$(ls -A "$MOUNT_POINT" 2>/dev/null)" ]; then
+            log_info "Removing mount point directory $MOUNT_POINT..."
+            rmdir "$MOUNT_POINT" 2>/dev/null || log_warn "Could not remove mount point directory"
+        else
+            log_warn "Mount point $MOUNT_POINT is not empty, not removing"
+        fi
+    fi
+
+    log_info "Cleanup complete!"
 }
 
 create_image() {
@@ -146,25 +178,35 @@ verify_setup() {
     fi
     
     log_info "Setup complete!"
-    echo ""
-    echo "=========================================="
-    echo "Throttled I/O Directory: $MOUNT_POINT"
-    echo "I/O Delay: ${DELAY_MS}ms (read and write)"
-    echo "=========================================="
+    echo "" >&2
+    echo "==========================================" >&2
+    echo "Throttled I/O Directory: $MOUNT_POINT" >&2
+    echo "I/O Delay: ${DELAY_MS}ms (read and write)" >&2
+    echo "==========================================" >&2
 }
 
 main() {
-    echo "=========================================="
-    echo "Throttled I/O Setup Script"
-    echo "Delay: ${DELAY_MS}ms"
-    echo "=========================================="
-    echo ""
-    
     # Check for root/sudo
     if ! sudo -v; then
         log_error "This script requires sudo privileges"
         exit 1
     fi
+
+    # Handle cleanup mode
+    if [ "$CLEANUP_MODE" = true ]; then
+        echo "==========================================" >&2
+        echo "Throttled I/O Cleanup" >&2
+        echo "==========================================" >&2
+        echo "" >&2
+        cleanup_all
+        exit 0
+    fi
+
+    echo "==========================================" >&2
+    echo "Throttled I/O Setup Script" >&2
+    echo "Delay: ${DELAY_MS}ms" >&2
+    echo "==========================================" >&2
+    echo "" >&2
     
     # Check for required tools
     for cmd in losetup dmsetup blockdev mkfs.ext4; do

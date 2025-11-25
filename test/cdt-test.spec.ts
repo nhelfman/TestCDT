@@ -2,18 +2,21 @@ import { test, expect, chromium } from '@playwright/test';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as os from 'os';
+import { execSync } from 'child_process';
 
 // Configuration
 const TEST_PAGE_URL = '/cdt-test.html';
-const ITERATIONS = 1;
+const ITERATIONS = 2;
 const USER_DATA_DIR = path.join(os.tmpdir(), 'cdt-test-profile');
-const CACHE_DIR = path.join(USER_DATA_DIR, 'cache');
+const CACHE_DIR = process.env.CDT_CACHE_DIR || path.join(USER_DATA_DIR, 'Cache');
+
+console.log(`Using CACHE_DIR: ${CACHE_DIR}`);
 
 // Chrome launch args for CDT support
-const CHROME_ARGS = [
-  '--enable-experimental-web-platform-features',
-  `--user-data-dir=${USER_DATA_DIR}`,
-  `--disk-cache-dir=${CACHE_DIR}`,
+const CHROME_ARGS =  [
+    '--enable-experimental-web-platform-features', // Neded to contentEncoding in resource timing
+    `--disk-cache-dir=${CACHE_DIR}`,
+    '--no-sandbox', // Required for running Chrome in WSL
 ];
 
 // Result types
@@ -77,6 +80,19 @@ function clearDiskCache(): void {
   console.log(`  User data directory cleared: ${USER_DATA_DIR}`);
 }
 
+// Flush the filesystem cache to ensure cold cache reads
+async function flushFsCache(): Promise<void> {
+  try {
+    execSync("sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'");
+    // Wait a bit to ensure cache flush is fully complete
+    await new Promise(resolve => setTimeout(resolve, 500));
+    console.log('  Filesystem cache flushed');
+  } catch (error) {
+    console.error('  Failed to flush filesystem cache:', error);
+    throw new Error('FATAL: Failed to flush filesystem cache. Test aborted.');
+  }
+}
+
 // Execute a single action with a fresh browser instance (but persistent user data)
 async function executeAction(
   baseURL: string,
@@ -87,13 +103,14 @@ async function executeAction(
   
   try {
     // Launch a persistent context to preserve CDT dictionary across restarts
+    // Use Linux Chrome explicitly (not Windows Chrome via WSL interop)
     context = await chromium.launchPersistentContext(USER_DATA_DIR, {
       headless: true,
-      args: [
-        '--enable-experimental-web-platform-features',
-        `--disk-cache-dir=${CACHE_DIR}`,
-      ],
+      executablePath: '/usr/bin/google-chrome', // Use Linux Chrome
+      args: CHROME_ARGS,
     });
+
+    console.log(`  Launched Chrome with cache dir: ${CACHE_DIR}`);
 
     page = await context.newPage();
     const consoleMessages: string[] = [];
@@ -264,6 +281,7 @@ test.describe('CDT Performance Test', () => {
       // Step 1: Clear cache and verify it's clean
       console.log('Step 1: Clear cache and verify clean state');
       clearDiskCache();
+      await flushFsCache();
       
       const initResult = await executeAction(baseURL, 'init');
       iterationResult.init = initResult.result;
@@ -275,6 +293,7 @@ test.describe('CDT Performance Test', () => {
 
       // Step 2: Load base file (new browser, populates disk cache)
       console.log('Step 2: Load base file (new browser)');
+      await flushFsCache();
       const loadBaseResult = await executeAction(baseURL, 'load_base');
       iterationResult.loadBase = loadBaseResult.result;
       
@@ -286,6 +305,7 @@ test.describe('CDT Performance Test', () => {
 
       // Step 3: Load diff file (new browser, uses disk cache for dictionary)
       console.log('Step 3: Load diff file (new browser)');
+      await flushFsCache();
       const loadDiffResult = await executeAction(baseURL, 'load_diff');
       iterationResult.loadDiff = loadDiffResult.result;
       
@@ -318,6 +338,7 @@ test.describe('CDT Performance Test', () => {
 
       // Step 4: Load diff again (new browser) - should be from disk cache
       console.log('Step 4: Load diff (new browser, should be from disk cache)');
+      await flushFsCache();
       const loadDiffCachedResult = await executeAction(baseURL, 'load_diff');
       iterationResult.loadDiffCached = loadDiffCachedResult.result;
       
@@ -343,6 +364,7 @@ test.describe('CDT Performance Test', () => {
 
       // Step 5: Load base again (new browser) - should be from disk cache
       console.log('Step 5: Load base (new browser, should be from disk cache)');
+      await flushFsCache();
       const loadBaseCachedResult = await executeAction(baseURL, 'load_base');
       iterationResult.loadBaseCached = loadBaseCachedResult.result;
       

@@ -44,16 +44,24 @@
             log(result, result.status === "ok" ? "ok" : "error");
         }
 
-        // Wait for Resource Timing entry to appear
-        async function getResourceTimingEntry(url, retries = 10) {
+        // Wait for Resource Timing entry to appear with complete data
+        async function getResourceTimingEntry(url, retries = 20) {
             for (let attempt = 0; attempt < retries; attempt++) {
                 const entries = performance.getEntriesByName(url, "resource");
                 if (entries.length > 0) {
-                    return entries[entries.length - 1];
+                    const entry = entries[entries.length - 1];
+                    // Wait until responseEnd is set (indicates entry is complete)
+                    // Note: For cross-origin requests without Timing-Allow-Origin,
+                    // transferSize/encodedBodySize/decodedBodySize will be 0
+                    if (entry.responseEnd > 0) {
+                        return entry;
+                    }
                 }
                 await new Promise(resolve => setTimeout(resolve, 100));
             }
-            return null;
+            // Return whatever we have after retries, even if incomplete
+            const entries = performance.getEntriesByName(url, "resource");
+            return entries.length > 0 ? entries[entries.length - 1] : null;
         }
 
         // Extract timing data from Resource Timing entry
@@ -132,18 +140,49 @@
                 if (!response.ok) {
                     throw new Error(`HTTP ${response.status}`);
                 }
-                await response.text(); // Consume response body
+                
+                // Get Content-Length header for transfer size (compressed size on the wire)
+                const contentLengthHeader = response.headers.get('Content-Length');
+                const contentEncodingHeader = response.headers.get('Content-Encoding');
+                
+                // Consume response body fully using arrayBuffer to ensure complete download
+                const body = await response.arrayBuffer();
+                const decodedSize = body.byteLength;
+                
+                // Small delay to ensure performance timing entry is finalized
+                await new Promise(resolve => setTimeout(resolve, 50));
 
                 const entry = await getResourceTimingEntry(url);
                 const timing = extractTimingData(entry, url);
+                
+                // Use Content-Length header as transferSize if Resource Timing doesn't provide it
+                // (cross-origin requests without Timing-Allow-Origin will have transferSize=0)
+                const transferSize = timing.transferSize > 0 
+                    ? timing.transferSize 
+                    : (contentLengthHeader ? parseInt(contentLengthHeader, 10) : null);
+                
+                // Use actual decoded body size if Resource Timing doesn't provide it
+                const actualDecodedBodySize = timing.decodedBodySize > 0 
+                    ? timing.decodedBodySize 
+                    : decodedSize;
+                
+                // Use Content-Encoding header if Resource Timing doesn't provide contentEncoding
+                const contentEncoding = timing.contentEncoding || contentEncodingHeader;
 
                 reportResult({
                     action: actionName,
                     status: "ok",
                     resourceType,
                     httpStatus: response.status,
-                    contentEncoding: timing.contentEncoding,
-                    ...timing
+                    contentEncoding: contentEncoding,
+                    url: timing.url,
+                    transferSize: transferSize,
+                    encodedBodySize: timing.encodedBodySize > 0 ? timing.encodedBodySize : transferSize,
+                    decodedBodySize: actualDecodedBodySize,
+                    duration: timing.duration,
+                    downloadTime: timing.downloadTime,
+                    deliveryType: timing.deliveryType,
+                    protocol: timing.protocol
                 });
             } catch (error) {
                 reportResult({

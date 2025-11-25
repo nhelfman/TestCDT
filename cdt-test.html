@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CDT Automation Test</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #0f0; }
+        .status { padding: 10px; margin: 10px 0; border-radius: 4px; }
+        .status.ok { background: #0a3d0a; }
+        .status.error { background: #5c1a1a; color: #f88; }
+        .status.info { background: #1a2a4a; color: #8cf; }
+        pre { white-space: pre-wrap; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <h1>CDT Automation Test Page</h1>
+    <div id="output"></div>
+
+    <script>
+        // Configuration - URLs for base and diff files
+        const CONFIG = {
+            baseUrl: "https://res-1.cdn.office.net/officeonline/x/s/h8e011a6153d55ce7__layouts/App_Scripts/EwaTS.ctxm.js",
+            diffUrl: "https://res-1.cdn.office.net/officeonline/x/s/h631431c7c9cabefb__layouts/App_Scripts/EwaTS.ctxm.js",
+            wscdtParam: "1" // CDT treatment group
+        };
+
+        const output = document.getElementById("output");
+
+        function log(message, type = "info") {
+            const div = document.createElement("div");
+            div.className = `status ${type}`;
+            div.innerHTML = `<pre>${typeof message === "string" ? message : JSON.stringify(message, null, 2)}</pre>`;
+            output.appendChild(div);
+        }
+
+        function buildUrl(url) {
+            return `${url}?wscdt=${CONFIG.wscdtParam}`;
+        }
+
+        // Output structured result to console for Playwright to capture
+        function reportResult(result) {
+            console.log("CDT_TEST_RESULT:" + JSON.stringify(result));
+            log(result, result.status === "ok" ? "ok" : "error");
+        }
+
+        // Wait for Resource Timing entry to appear
+        async function getResourceTimingEntry(url, retries = 10) {
+            for (let attempt = 0; attempt < retries; attempt++) {
+                const entries = performance.getEntriesByName(url, "resource");
+                if (entries.length > 0) {
+                    return entries[entries.length - 1];
+                }
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+            return null;
+        }
+
+        // Extract timing data from Resource Timing entry
+        function extractTimingData(entry, url) {
+            if (!entry) {
+                return {
+                    url,
+                    error: "No Resource Timing entry found",
+                    transferSize: null,
+                    encodedBodySize: null,
+                    decodedBodySize: null,
+                    duration: null,
+                    downloadTime: null,
+                    deliveryType: null,
+                    protocol: null,
+                    contentEncoding: null
+                };
+            }
+
+            return {
+                url,
+                transferSize: entry.transferSize,
+                encodedBodySize: entry.encodedBodySize,
+                decodedBodySize: entry.decodedBodySize,
+                duration: entry.duration,
+                downloadTime: entry.responseEnd - entry.responseStart,
+                deliveryType: entry.deliveryType || (entry.transferSize === 0 && entry.encodedBodySize > 0 ? "cache" : "network"),
+                protocol: entry.nextHopProtocol,
+                contentEncoding: entry.contentEncoding || null
+            };
+        }
+
+        // Action: init - verify cache is clean
+        async function actionInit() {
+            const baseUrlFull = buildUrl(CONFIG.baseUrl);
+            const diffUrlFull = buildUrl(CONFIG.diffUrl);
+
+            const baseEntries = performance.getEntriesByName(baseUrlFull, "resource");
+            const diffEntries = performance.getEntriesByName(diffUrlFull, "resource");
+
+            if (baseEntries.length > 0 || diffEntries.length > 0) {
+                reportResult({
+                    action: "init",
+                    status: "error",
+                    message: "Cache not clean - found existing Resource Timing entries",
+                    baseEntriesCount: baseEntries.length,
+                    diffEntriesCount: diffEntries.length
+                });
+                return;
+            }
+
+            reportResult({
+                action: "init",
+                status: "ok",
+                message: "Cache is clean - no existing entries found"
+            });
+        }
+
+        // Action: load_base - load base file and report timing
+        async function actionLoadBase() {
+            await loadResource(CONFIG.baseUrl, "base", "load_base");
+        }
+
+        // Action: load_diff - load diff file and report timing
+        async function actionLoadDiff() {
+            await loadResource(CONFIG.diffUrl, "diff", "load_diff");
+        }
+
+        // Shared function to load a resource and report timing
+        async function loadResource(baseUrl, resourceType, actionName) {
+            const url = buildUrl(baseUrl);
+            performance.clearResourceTimings();
+
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}`);
+                }
+                await response.text(); // Consume response body
+
+                const entry = await getResourceTimingEntry(url);
+                const timing = extractTimingData(entry, url);
+
+                reportResult({
+                    action: actionName,
+                    status: "ok",
+                    resourceType,
+                    httpStatus: response.status,
+                    contentEncoding: timing.contentEncoding,
+                    ...timing
+                });
+            } catch (error) {
+                reportResult({
+                    action: actionName,
+                    status: "error",
+                    message: error.message,
+                    url
+                });
+            }
+        }
+
+        // Parse query parameters and execute action
+        async function main() {
+            const params = new URLSearchParams(window.location.search);
+            const action = params.get("action");
+
+            // Allow overriding URLs via query params
+            if (params.get("baseUrl")) {
+                CONFIG.baseUrl = params.get("baseUrl");
+            }
+            if (params.get("diffUrl")) {
+                CONFIG.diffUrl = params.get("diffUrl");
+            }
+            if (params.get("wscdt")) {
+                CONFIG.wscdtParam = params.get("wscdt");
+            }
+
+            log(`Action: ${action || "none"}`, "info");
+            log(`Base URL: ${CONFIG.baseUrl}`, "info");
+            log(`Diff URL: ${CONFIG.diffUrl}`, "info");
+
+            switch (action) {
+                case "init":
+                    await actionInit();
+                    break;
+                case "load_base":
+                    await actionLoadBase();
+                    break;
+                case "load_diff":
+                    await actionLoadDiff();
+                    break;
+                default:
+                    reportResult({
+                        action: action || "none",
+                        status: "error",
+                        message: "Unknown or missing action. Valid actions: init, load_base, load_diff"
+                    });
+            }
+        }
+
+        // Run on page load
+        main().catch(error => {
+            reportResult({
+                action: "unknown",
+                status: "error",
+                message: `Unhandled error: ${error.message}`
+            });
+        });
+    </script>
+</body>
+</html>

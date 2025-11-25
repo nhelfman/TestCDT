@@ -8,7 +8,7 @@
 set -e
 
 # Check for cleanup option
-if [ "$1" = "--cleanup" ] || [ "$1" = "-c" ]; then
+if [ "$1" = "--cleanup" ] || [ "$1" = "--clean" ] || [ "$1" = "-c" ]; then
     CLEANUP_MODE=true
     DELAY_MS=0
 else
@@ -178,10 +178,55 @@ verify_setup() {
     fi
     
     log_info "Setup complete!"
+}
+
+measure_io_performance() {
+    log_info "Measuring I/O performance..."
+    
+    local TEST_FILE="$MOUNT_POINT/.perf_test_$$"
+    local TEST_SIZE_MB=10
+    
+    # Clear caches to get accurate read performance
+    sync
+    echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null 2>&1 || true
+    
+    # Measure write performance
+    log_info "Testing write performance (${TEST_SIZE_MB}MB)..."
+    local WRITE_START=$(date +%s.%N)
+    dd if=/dev/zero of="$TEST_FILE" bs=1M count=$TEST_SIZE_MB conv=fdatasync 2>/dev/null
+    local WRITE_END=$(date +%s.%N)
+    
+    # Clear caches before read test
+    sync
+    echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null 2>&1 || true
+    
+    # Measure read performance
+    log_info "Testing read performance (${TEST_SIZE_MB}MB)..."
+    local READ_START=$(date +%s.%N)
+    dd if="$TEST_FILE" of=/dev/null bs=1M 2>/dev/null
+    local READ_END=$(date +%s.%N)
+    
+    # Cleanup test file
+    rm -f "$TEST_FILE"
+    
+    # Calculate speeds
+    WRITE_TIME=$(echo "$WRITE_END - $WRITE_START" | bc)
+    READ_TIME=$(echo "$READ_END - $READ_START" | bc)
+    
+    WRITE_SPEED=$(echo "scale=2; $TEST_SIZE_MB / $WRITE_TIME" | bc)
+    READ_SPEED=$(echo "scale=2; $TEST_SIZE_MB / $READ_TIME" | bc)
+    
+    log_info "I/O performance test complete"
+}
+
+print_results() {
     echo "" >&2
     echo "==========================================" >&2
     echo "Throttled I/O Directory: $MOUNT_POINT" >&2
     echo "I/O Delay: ${DELAY_MS}ms (read and write)" >&2
+    echo "------------------------------------------" >&2
+    echo "Write Speed: ${WRITE_SPEED} MB/s" >&2
+    echo "Read Speed:  ${READ_SPEED} MB/s" >&2
     echo "==========================================" >&2
 }
 
@@ -224,6 +269,8 @@ main() {
     create_throttled_device "$LOOP_DEV" "$DELAY_MS"
     mount_device
     verify_setup
+    measure_io_performance
+    print_results
 }
 
 main "$@"

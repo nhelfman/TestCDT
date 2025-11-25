@@ -186,7 +186,33 @@ function formatReport(
   allResults: IterationResults[]
 ): string {
   const lines: string[] = [];
+    
+  lines.push('');
+  lines.push('='.repeat(80));
+
+  lines.push('');
+  lines.push('-'.repeat(80));
+  lines.push('DETAILED RESULTS PER ITERATION');
+  lines.push('-'.repeat(80));
   
+  for (const result of allResults) {
+    lines.push('');
+    lines.push(`Iteration ${result.iteration}:`);
+    
+    if (result.loadBase) {
+      lines.push(`  Base (network): transferSize=${result.loadBase.transferSize}, duration=${result.loadBase.duration?.toFixed(2)}ms, encoding=${result.loadBase.contentEncoding}`);
+    }
+    if (result.loadDiff) {
+      lines.push(`  Diff (network): transferSize=${result.loadDiff.transferSize}, duration=${result.loadDiff.duration?.toFixed(2)}ms, encoding=${result.loadDiff.contentEncoding}`);
+    }
+    if (result.loadDiffCached) {
+      lines.push(`  Diff (cache):   duration=${result.loadDiffCached.duration?.toFixed(2)}ms, deliveryType=${result.loadDiffCached.deliveryType}`);
+    }
+    if (result.loadBaseCached) {
+      lines.push(`  Base (cache):   duration=${result.loadBaseCached.duration?.toFixed(2)}ms, deliveryType=${result.loadBaseCached.deliveryType}`);
+    }
+  }
+
   lines.push('');
   lines.push('='.repeat(80));
   lines.push('CDT PERFORMANCE TEST REPORT');
@@ -224,38 +250,13 @@ function formatReport(
     const diff = baseCacheStats.mean - diffCacheStats.mean;
     const percentDiff = (diff / baseCacheStats.mean) * 100;
     lines.push('-'.repeat(80));
-    lines.push('COMPARISON');
+    lines.push('COMPARISON (mean)');
     lines.push('-'.repeat(80));
     lines.push(`  Difference (base - diff): ${diff.toFixed(2)} ms`);
     lines.push(`  Percentage difference: ${percentDiff.toFixed(2)}%`);
-    lines.push(`  Diff is ${diff > 0 ? 'faster' : 'slower'} than base by ${Math.abs(diff).toFixed(2)} ms`);
   }
   
-  lines.push('');
-  lines.push('-'.repeat(80));
-  lines.push('DETAILED RESULTS PER ITERATION');
-  lines.push('-'.repeat(80));
   
-  for (const result of allResults) {
-    lines.push('');
-    lines.push(`Iteration ${result.iteration}:`);
-    
-    if (result.loadBase) {
-      lines.push(`  Base (network): transferSize=${result.loadBase.transferSize}, duration=${result.loadBase.duration?.toFixed(2)}ms, encoding=${result.loadBase.contentEncoding}`);
-    }
-    if (result.loadDiff) {
-      lines.push(`  Diff (network): transferSize=${result.loadDiff.transferSize}, duration=${result.loadDiff.duration?.toFixed(2)}ms, encoding=${result.loadDiff.contentEncoding}`);
-    }
-    if (result.loadDiffCached) {
-      lines.push(`  Diff (cache):   duration=${result.loadDiffCached.duration?.toFixed(2)}ms, deliveryType=${result.loadDiffCached.deliveryType}`);
-    }
-    if (result.loadBaseCached) {
-      lines.push(`  Base (cache):   duration=${result.loadBaseCached.duration?.toFixed(2)}ms, deliveryType=${result.loadBaseCached.deliveryType}`);
-    }
-  }
-  
-  lines.push('');
-  lines.push('='.repeat(80));
   
   return lines.join('\n');
 }

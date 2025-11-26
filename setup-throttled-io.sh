@@ -1,276 +1,121 @@
-#!/bin/bash
+# a script to set up a throttled I/O device using dmsetup
+# This script creates a loop device, formats it, sets up a throttled I/O device with a specified delay
+DELAY=50
 
-# Setup throttled I/O directory with configurable delay
-# Usage: ./setup-throttled-io.sh [delay_ms]
-#        ./setup-throttled-io.sh --cleanup
-# Default delay is 5ms
-
-set -e
-
-# Check for cleanup option
-if [ "$1" = "--cleanup" ] || [ "$1" = "--clean" ] || [ "$1" = "-c" ]; then
-    CLEANUP_MODE=true
-    DELAY_MS=0
+# Remove existing device (if exists)
+if mountpoint -q ~/throttled_io 2>/dev/null; then
+    echo "Unmounting ~/throttled_io..."
+    if sudo umount ~/throttled_io; then
+        echo "Successfully unmounted ~/throttled_io"
+    else
+        echo "Error: Failed to unmount ~/throttled_io"
+        exit 1
+    fi
 else
-    CLEANUP_MODE=false
-    DELAY_MS=${1:-5}
+    echo "Skipping unmount: ~/throttled_io is not mounted"
 fi
-MOUNT_POINT="$HOME/throttled_io"
-IMG_FILE="/tmp/throttled.img"
-IMG_SIZE_MB=100
-DM_NAME="throttled_io"
-DM_DEVICE="/dev/mapper/$DM_NAME"
 
-# Colors for output
-RED='\033[0;31m'
-GREEN='\033[0;32m'
-YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
-
-log_info() {
-    echo -e "${GREEN}[INFO]${NC} $1" >&2
-}
-
-log_warn() {
-    echo -e "${YELLOW}[WARN]${NC} $1" >&2
-}
-
-log_error() {
-    echo -e "${RED}[ERROR]${NC} $1" >&2
-}
-
-cleanup_existing() {
-    log_info "Cleaning up existing setup..."
-
-    # Unmount if mounted
-    if mountpoint -q "$MOUNT_POINT" 2>/dev/null; then
-        log_info "Unmounting $MOUNT_POINT..."
-        sudo umount "$MOUNT_POINT" || log_warn "Failed to unmount, may not be mounted"
+if sudo dmsetup info throttled_io &>/dev/null; then
+    echo "Removing device-mapper device 'throttled_io'..."
+    if sudo dmsetup remove throttled_io; then
+        echo "Successfully removed device-mapper device 'throttled_io'"
+    else
+        echo "Error: Failed to remove device-mapper device 'throttled_io'"
+        exit 1
     fi
+else
+    echo "Skipping dmsetup remove: device 'throttled_io' does not exist"
+fi
 
-    # Remove device mapper if exists
-    if sudo dmsetup info "$DM_NAME" &>/dev/null; then
-        log_info "Removing device mapper $DM_NAME..."
-        sudo dmsetup remove "$DM_NAME" || log_warn "Failed to remove device mapper"
-    fi
+# Get the loop device and size
+LOOP_DEV=$(sudo losetup -j /tmp/throttled.img 2>/dev/null | cut -d: -f1)
 
-    # Detach loop device if attached
-    if [ -f "$IMG_FILE" ]; then
-        LOOP_DEV=$(sudo losetup -j "$IMG_FILE" 2>/dev/null | cut -d: -f1)
-        if [ -n "$LOOP_DEV" ]; then
-            log_info "Detaching loop device $LOOP_DEV..."
-            sudo losetup -d "$LOOP_DEV" || log_warn "Failed to detach loop device"
-        fi
-    fi
-}
-
-cleanup_all() {
-    log_info "Performing full cleanup..."
-
-    cleanup_existing
-
-    # Remove image file
-    if [ -f "$IMG_FILE" ]; then
-        log_info "Removing image file $IMG_FILE..."
-        sudo rm -f "$IMG_FILE"
-    fi
-
-    # Remove mount point directory if empty
-    if [ -d "$MOUNT_POINT" ]; then
-        if [ -z "$(ls -A "$MOUNT_POINT" 2>/dev/null)" ]; then
-            log_info "Removing mount point directory $MOUNT_POINT..."
-            rmdir "$MOUNT_POINT" 2>/dev/null || log_warn "Could not remove mount point directory"
+if [ -z "$LOOP_DEV" ]; then
+    echo "No existing loop device found for /tmp/throttled.img, creating new one..."
+    # Create the image file if it doesn't exist
+    if [ ! -f /tmp/throttled.img ]; then
+        echo "Creating /tmp/throttled.img..."
+        if sudo dd if=/dev/zero of=/tmp/throttled.img bs=1M count=100 status=progress; then
+            echo "Successfully created /tmp/throttled.img"
         else
-            log_warn "Mount point $MOUNT_POINT is not empty, not removing"
-        fi
-    fi
-
-    log_info "Cleanup complete!"
-}
-
-create_image() {
-    if [ ! -f "$IMG_FILE" ]; then
-        log_info "Creating image file $IMG_FILE (${IMG_SIZE_MB}MB)..."
-        sudo dd if=/dev/zero of="$IMG_FILE" bs=1M count=$IMG_SIZE_MB status=progress
-        sudo chmod 666 "$IMG_FILE"
-    else
-        log_info "Image file $IMG_FILE already exists"
-    fi
-}
-
-setup_loop_device() {
-    log_info "Setting up loop device..."
-    
-    # Check if already attached
-    LOOP_DEV=$(sudo losetup -j "$IMG_FILE" 2>/dev/null | cut -d: -f1)
-    
-    if [ -z "$LOOP_DEV" ]; then
-        LOOP_DEV=$(sudo losetup -f --show "$IMG_FILE")
-        log_info "Created loop device: $LOOP_DEV"
-    else
-        log_info "Using existing loop device: $LOOP_DEV"
-    fi
-    
-    echo "$LOOP_DEV"
-}
-
-format_if_needed() {
-    local loop_dev=$1
-    
-    # Check if already formatted
-    if ! sudo blkid "$loop_dev" &>/dev/null; then
-        log_info "Formatting $loop_dev with ext4..."
-        sudo mkfs.ext4 -F "$loop_dev"
-    else
-        log_info "Device $loop_dev already formatted"
-    fi
-}
-
-create_throttled_device() {
-    local loop_dev=$1
-    local delay=$2
-    
-    log_info "Creating throttled device with ${delay}ms delay..."
-    
-    SIZE=$(sudo blockdev --getsz "$loop_dev")
-    
-    if [ -z "$SIZE" ] || [ "$SIZE" -eq 0 ]; then
-        log_error "Failed to get device size"
-        exit 1
-    fi
-    
-    log_info "Device size: $SIZE sectors"
-    
-    # Create delay device mapper
-    # Format: start_sector num_sectors delay underlying_device offset_sectors read_delay_ms [write_device write_offset write_delay_ms]
-    echo "0 $SIZE delay $loop_dev 0 $delay $loop_dev 0 $delay" | sudo dmsetup create "$DM_NAME"
-    
-    log_info "Created device mapper: $DM_DEVICE"
-}
-
-mount_device() {
-    log_info "Creating mount point $MOUNT_POINT..."
-    mkdir -p "$MOUNT_POINT"
-    
-    log_info "Mounting $DM_DEVICE to $MOUNT_POINT..."
-    sudo mount "$DM_DEVICE" "$MOUNT_POINT"
-    
-    log_info "Setting ownership to $USER..."
-    sudo chown "$USER:$USER" "$MOUNT_POINT"
-}
-
-verify_setup() {
-    log_info "Verifying setup..."
-    
-    if ! mountpoint -q "$MOUNT_POINT"; then
-        log_error "Mount point verification failed"
-        exit 1
-    fi
-    
-    # Test write
-    TEST_FILE="$MOUNT_POINT/.test_write_$$"
-    if echo "test" > "$TEST_FILE" 2>/dev/null; then
-        rm -f "$TEST_FILE"
-        log_info "Write test passed"
-    else
-        log_error "Write test failed"
-        exit 1
-    fi
-    
-    log_info "Setup complete!"
-}
-
-measure_io_performance() {
-    log_info "Measuring I/O performance..."
-    
-    local TEST_FILE="$MOUNT_POINT/.perf_test_$$"
-    local TEST_SIZE_MB=10
-    
-    # Clear caches to get accurate read performance
-    sync
-    echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null 2>&1 || true
-    
-    # Measure write performance
-    log_info "Testing write performance (${TEST_SIZE_MB}MB)..."
-    local WRITE_START=$(date +%s.%N)
-    dd if=/dev/zero of="$TEST_FILE" bs=1M count=$TEST_SIZE_MB conv=fdatasync 2>/dev/null
-    local WRITE_END=$(date +%s.%N)
-    
-    # Clear caches before read test
-    sync
-    echo 3 | sudo tee /proc/sys/vm/drop_caches > /dev/null 2>&1 || true
-    
-    # Measure read performance
-    log_info "Testing read performance (${TEST_SIZE_MB}MB)..."
-    local READ_START=$(date +%s.%N)
-    dd if="$TEST_FILE" of=/dev/null bs=1M 2>/dev/null
-    local READ_END=$(date +%s.%N)
-    
-    # Cleanup test file
-    rm -f "$TEST_FILE"
-    
-    # Calculate speeds
-    WRITE_TIME=$(echo "$WRITE_END - $WRITE_START" | bc)
-    READ_TIME=$(echo "$READ_END - $READ_START" | bc)
-    
-    WRITE_SPEED=$(echo "scale=2; $TEST_SIZE_MB / $WRITE_TIME" | bc)
-    READ_SPEED=$(echo "scale=2; $TEST_SIZE_MB / $READ_TIME" | bc)
-    
-    log_info "I/O performance test complete"
-}
-
-print_results() {
-    echo "" >&2
-    echo "==========================================" >&2
-    echo "Throttled I/O Directory: $MOUNT_POINT" >&2
-    echo "I/O Delay: ${DELAY_MS}ms (read and write)" >&2
-    echo "------------------------------------------" >&2
-    echo "Write Speed: ${WRITE_SPEED} MB/s" >&2
-    echo "Read Speed:  ${READ_SPEED} MB/s" >&2
-    echo "==========================================" >&2
-}
-
-main() {
-    # Check for root/sudo
-    if ! sudo -v; then
-        log_error "This script requires sudo privileges"
-        exit 1
-    fi
-
-    # Handle cleanup mode
-    if [ "$CLEANUP_MODE" = true ]; then
-        echo "==========================================" >&2
-        echo "Throttled I/O Cleanup" >&2
-        echo "==========================================" >&2
-        echo "" >&2
-        cleanup_all
-        exit 0
-    fi
-
-    echo "==========================================" >&2
-    echo "Throttled I/O Setup Script" >&2
-    echo "Delay: ${DELAY_MS}ms" >&2
-    echo "==========================================" >&2
-    echo "" >&2
-    
-    # Check for required tools
-    for cmd in losetup dmsetup blockdev mkfs.ext4; do
-        if ! command -v $cmd &>/dev/null; then
-            log_error "Required command '$cmd' not found"
+            echo "Error: Failed to create /tmp/throttled.img"
             exit 1
         fi
-    done
-    
-    cleanup_existing
-    create_image
-    
-    LOOP_DEV=$(setup_loop_device)
-    format_if_needed "$LOOP_DEV"
-    create_throttled_device "$LOOP_DEV" "$DELAY_MS"
-    mount_device
-    verify_setup
-    measure_io_performance
-    print_results
-}
+    fi
+    # Set up the loop device
+    echo "Setting up loop device..."
+    if LOOP_DEV=$(sudo losetup --find --show /tmp/throttled.img); then
+        echo "Successfully created loop device: $LOOP_DEV"
+    else
+        echo "Error: Failed to create loop device"
+        exit 1
+    fi
+    NEED_FORMAT=true
+else
+    echo "Found existing loop device: $LOOP_DEV"
+    # Check if filesystem exists on the device
+    if ! sudo blkid "$LOOP_DEV" &>/dev/null; then
+        echo "No filesystem detected on $LOOP_DEV"
+        NEED_FORMAT=true
+    else
+        NEED_FORMAT=false
+    fi
+fi
 
-main "$@"
+# Format the device if needed
+if [ "$NEED_FORMAT" = true ]; then
+    echo "Formatting $LOOP_DEV with ext4 filesystem..."
+    if sudo mkfs.ext4 -F "$LOOP_DEV"; then
+        echo "Successfully formatted $LOOP_DEV"
+    else
+        echo "Error: Failed to format $LOOP_DEV"
+        exit 1
+    fi
+fi
+
+echo "Getting device size..."
+if SIZE=$(sudo blockdev --getsz "$LOOP_DEV"); then
+    echo "Device size: $SIZE sectors"
+else
+    echo "Error: Failed to get device size for $LOOP_DEV"
+    exit 1
+fi
+
+# Set delay in io reads
+echo "Creating throttled I/O device with ${DELAY}ms delay..."
+if echo "0 $SIZE delay $LOOP_DEV 0 $DELAY $LOOP_DEV 0 $DELAY" | sudo dmsetup create throttled_io; then
+    echo "Successfully created throttled I/O device"
+else
+    echo "Error: Failed to create throttled I/O device"
+    exit 1
+fi
+
+# Create mount point if it doesn't exist
+if [ ! -d ~/throttled_io ]; then
+    echo "Creating mount point ~/throttled_io..."
+    if mkdir -p ~/throttled_io; then
+        echo "Successfully created mount point"
+    else
+        echo "Error: Failed to create mount point ~/throttled_io"
+        exit 1
+    fi
+fi
+
+# Remount
+echo "Mounting /dev/mapper/throttled_io to ~/throttled_io..."
+if sudo mount /dev/mapper/throttled_io ~/throttled_io; then
+    echo "Successfully mounted throttled I/O device"
+else
+    echo "Error: Failed to mount throttled I/O device"
+    exit 1
+fi
+
+echo "Setting ownership to $USER..."
+if sudo chown "$USER:$USER" ~/throttled_io; then
+    echo "Successfully set ownership"
+else
+    echo "Error: Failed to set ownership"
+    exit 1
+fi
+
+echo "Throttled I/O setup complete!"

@@ -12,11 +12,6 @@ if ! [[ "$DELAY" =~ ^[0-9]+$ ]]; then
     exit 1
 fi
 
-if [ "$DELAY" -eq 0 ]; then
-    echo "Error: Delay must be greater than 0"
-    exit 1
-fi
-
 echo "Using delay: ${DELAY}ms"
 
 # Remove existing device (if exists)
@@ -136,3 +131,30 @@ else
 fi
 
 echo "Throttled I/O setup complete!"
+
+# Test read speed of the throttled path
+echo ""
+echo "=== Testing throttled I/O read speed ==="
+
+# Create a test file (1MB)
+TEST_FILE=~/throttled_io/test_file.bin
+TEST_SIZE_MB=10
+echo "Creating ${TEST_SIZE_MB}MB test file..."
+dd if=/dev/urandom of="$TEST_FILE" bs=1M count=$TEST_SIZE_MB status=none 2>/dev/null
+
+# Sync to ensure data is written to disk
+sync
+
+# Drop caches to ensure we're reading from disk
+echo "Dropping caches..."
+sudo sh -c 'echo 3 > /proc/sys/vm/drop_caches'
+
+# Read the file and measure time using O_DIRECT to bypass cache
+echo "Reading test file with direct I/O (bypassing cache)..."
+DD_OUTPUT=$(dd if="$TEST_FILE" of=/dev/null bs=1M iflag=direct 2>&1)
+echo "$DD_OUTPUT" | tail -1
+
+# Cleanup test file
+rm -f "$TEST_FILE"
+echo "Test complete!"
+

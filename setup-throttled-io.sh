@@ -1,6 +1,23 @@
 # a script to set up a throttled I/O device using dmsetup
 # This script creates a loop device, formats it, sets up a throttled I/O device with a specified delay
-DELAY=50
+# Usage: ./setup-throttled-io.sh [delay_ms]
+#   delay_ms: Optional delay in milliseconds (default: 50)
+
+# Parse delay argument with default value
+DELAY=${1:-50}
+
+# Validate that DELAY is a positive integer
+if ! [[ "$DELAY" =~ ^[0-9]+$ ]]; then
+    echo "Error: Delay must be a positive integer (got: '$DELAY')"
+    exit 1
+fi
+
+if [ "$DELAY" -eq 0 ]; then
+    echo "Error: Delay must be greater than 0"
+    exit 1
+fi
+
+echo "Using delay: ${DELAY}ms"
 
 # Remove existing device (if exists)
 if mountpoint -q ~/throttled_io 2>/dev/null; then

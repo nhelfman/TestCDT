@@ -8,9 +8,12 @@ See [sweep-test-result.md](sweep-test-result.md) for full test results involving
 
 ## Overview
 
-The test consists of:
+The automated test consists of:
 - **`cdt-test.html`** - A minimal test page that executes actions based on URL query parameters
 - **`test/cdt-test.spec.ts`** - Playwright automation script that orchestrates the test flow
+
+To manually test using a simple UI it is possible to use this simple test page:
+https://nhelfman.github.io/TestCDT/
 
 ## Prerequisites
 

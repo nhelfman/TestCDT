@@ -1,4 +1,4 @@
-# CDT Performance Test
+# CDT Cache Performance Test
 
 This project tests Compression Dictionary Transport (CDT) performance by comparing cache read timing between base (brotli) and diff (dictionary-compressed brotli) files. We can experiment with different cache IO throughputs to understand the impact of cache read performance.
 

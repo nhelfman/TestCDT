@@ -1,6 +1,10 @@
 # CDT Performance Test
 
-This project tests Compression Dictionary Transport (CDT) performance by comparing cache read timing between base (brotli) and diff (dictionary-compressed brotli) files.
+This project tests Compression Dictionary Transport (CDT) performance by comparing cache read timing between base (brotli) and diff (dictionary-compressed brotli) files. We can experiment with different cache IO throughputs to understand the impact of cache read performance.
+
+## Test Results
+
+See [sweep-test-result.md](sweep-test-result.md) for full test results involving different cache throttling levels.
 
 ## Overview
 
@@ -74,19 +78,7 @@ After all iterations, the test outputs a report comparing:
 ## Configuration
 
 Edit `playwright.config.ts` to adjust:
-- Number of iterations (modify `ITERATIONS` in test file)
+- Number of iterations (modify `ITERATIONS` in test file cdt-test.spec.ts)
 - Chrome launch flags for CDT
 - Timeouts and other Playwright settings
 
-## Files
-
-```
-├── cdt-test.html          # Automation test page
-├── index.html             # Original manual test page (reference)
-├── package.json           # Dependencies
-├── playwright.config.ts   # Playwright configuration
-├── tsconfig.json          # TypeScript configuration
-├── test/
-│   └── cdt-test.spec.ts   # Playwright test script
-└── README.md              # This file
-```

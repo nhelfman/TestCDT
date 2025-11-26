@@ -1,0 +1,41 @@
+================================================================================
+                    CDT CACHE READ PERFORMANCE SWEEP REPORT
+================================================================================
+
+Test Date: Wed Nov 26 16:50:57 IST 2025
+Delay Range: 0ms to 50ms (increment: 10ms)
+
+--------------------------------------------------------------------------------
+                              RESULTS TABLE
+--------------------------------------------------------------------------------
+
+IO Delay        Throughput      DCB Read        Brotli Read     Gap       
+(per read)                      Time            Time                      
+--------------------------------------------------------------------------------
+0 (control) ms  ~1 GB/s         6.30 ms         8.00 ms         -1.70 ms  
+0 ms            665 MB/s        8.30 ms         7.50 ms         .80 ms    
+10 ms           63.0 MB/s       70.00 ms        48.70 ms        21.30 ms  
+20 ms           43.8 MB/s       104.60 ms       80.50 ms        24.10 ms  
+30 ms           28.8 MB/s       143.50 ms       107.40 ms       36.10 ms  
+40 ms           23.9 MB/s       177.70 ms       134.70 ms       43.00 ms  
+50 ms           18.7 MB/s       226.00 ms       203.30 ms       22.70 ms  
+
+--------------------------------------------------------------------------------
+                              ANALYSIS
+--------------------------------------------------------------------------------
+
+DCB (Dictionary Compressed Brotli) uses the base file as a dictionary.
+Brotli is standard brotli compression without dictionary.
+Gap = DCB Read Time - Brotli Read Time
+
+Positive gap: DCB is slower (requires reading dictionary from cache)
+Negative gap: DCB is faster
+
+As I/O delay increases, the gap typically increases because DCB
+requires additional I/O to read the dictionary from disk cache.
+
+================================================================================
+Results saved to: cdt-perf-results-20251126-162346.csv
+Report saved to: cdt-perf-report-20251126-162346.txt
+================================================================================
+

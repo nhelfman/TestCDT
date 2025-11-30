@@ -84,8 +84,10 @@ IO Delay        Throughput      DCB Read        Brotli Read     Gap
 
 ```
 
+![alt text](image.png)
+
 # Analysis
-As I/O delay increases, the gap typically increases because DCB
+As throughput goes down, the gap between brotli cache and dcb cache typically increases because DCB
 requires additional I/O to read the dictionary from disk cache as it is not compressed.
 
 This may justify a change in the user agent to compress the DCB content before saving it to cache 

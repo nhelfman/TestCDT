@@ -17,38 +17,38 @@ The sweep test is an automated performance benchmarking tool that:
 
 ## Example Results
 ```bash
-T$ ./run-perf-sweep.sh 0 50 10
+$ ./run-perf-sweep.sh 0 10 1
 
 
 CDT Performance Sweep
 ==========================================
 Start Delay: 0ms
-End Delay: 50ms
-Increment: 10ms
-Results file: cdt-perf-results-20251126-162346.csv
+End Delay: 10ms
+Increment: 1ms
+Results file: cdt-perf-results-20251130-105449.csv
 ==========================================
 
 
 Running control test (no throttling)...
 [INFO] Running CDT test without I/O throttling...
-[INFO] Control results: DCB=6.30ms, Brotli=8.00ms
-[INFO] Test 1 of 6
+[INFO] Control results: DCB=26.50ms, Brotli=43.60ms
+[INFO] Test 1 of 11
 
 Testing with I/O delay: 0ms
 ==========================================
 [INFO] Setting up throttled I/O with 0ms delay...
-[INFO] Measured throughput: 665 MB/s
+[INFO] Measured throughput: 668 MB/s
 [INFO] Running CDT performance test...
-[INFO] Results: DCB=8.30ms, Brotli=7.50ms, Gap=.80ms
-[INFO] Test 2 of 6
+[INFO] Results: DCB=28.50ms, Brotli=45.20ms, Gap=-16.70ms
+[INFO] Test 2 of 11
 
-Testing with I/O delay: 10ms
+Testing with I/O delay: 1ms
 ==========================================
-[INFO] Setting up throttled I/O with 10ms delay...
-[INFO] Measured throughput: 63.0 MB/s
+[INFO] Setting up throttled I/O with 1ms delay...
+[INFO] Measured throughput: 118 MB/s
 [INFO] Running CDT performance test...
-[INFO] Results: DCB=70.00ms, Brotli=48.70ms, Gap=21.30ms
-[INFO] Test 3 of 6
+[INFO] Results: DCB=192.40ms, Brotli=86.30ms, Gap=106.10ms
+[INFO] Test 3 of 11
 ...
 ```
 
@@ -56,11 +56,11 @@ Testing with I/O delay: 10ms
 
 ```
 ================================================================================
-                    CDT PERFORMANCE SWEEP REPORT
+                    CDT CACHE READ PERFORMANCE SWEEP REPORT
 ================================================================================
 
-Test Date: Wed Nov 26 16:22:33 IST 2025
-Delay Range: 0ms to 50ms (increment: 10ms)
+Test Date: Sun Nov 30 11:41:52 IST 2025
+Delay Range: 0ms to 10ms (increment: 1ms)
 
 --------------------------------------------------------------------------------
                               RESULTS TABLE
@@ -69,13 +69,18 @@ Delay Range: 0ms to 50ms (increment: 10ms)
 IO Delay        Throughput      DCB Read        Brotli Read     Gap       
 (per read)                      Time            Time                      
 --------------------------------------------------------------------------------
-0 (control) ms  ~1 GB/s         6.00 ms         6.40 ms         -.40 ms   
-0 ms            632 MB/s        7.10 ms         5.90 ms         1.20 ms   
-10 ms           64.7 MB/s       74.40 ms        50.40 ms        24.00 ms  
-20 ms           43.9 MB/s       98.80 ms        77.90 ms        20.90 ms  
-30 ms           29.2 MB/s       144.30 ms       112.20 ms       32.10 ms  
-40 ms           23.8 MB/s       176.90 ms       136.20 ms       40.70 ms  
-50 ms           18.7 MB/s       219.30 ms       169.90 ms       49.40 ms  
+0 (control) ms  ~1 GB/s         26.50 ms        43.60 ms        -17.10 ms 
+0 ms            668 MB/s        28.50 ms        45.20 ms        -16.70 ms 
+1 ms            118 MB/s        192.40 ms       86.30 ms        106.10 ms 
+2 ms            127 MB/s        178.40 ms       84.60 ms        93.80 ms  
+3 ms            123 MB/s        200.00 ms       67.80 ms        132.20 ms 
+4 ms            125 MB/s        188.00 ms       79.70 ms        108.30 ms 
+5 ms            81.6 MB/s       275.60 ms       115.10 ms       160.50 ms 
+6 ms            87.8 MB/s       272.20 ms       110.00 ms       162.20 ms 
+7 ms            82.9 MB/s       267.80 ms       101.00 ms       166.80 ms 
+8 ms            81.8 MB/s       274.40 ms       116.70 ms       157.70 ms 
+9 ms            63.5 MB/s       357.80 ms       131.50 ms       226.30 ms 
+10 ms           64.7 MB/s       357.80 ms       135.50 ms       222.30 ms 
 
 ```
 

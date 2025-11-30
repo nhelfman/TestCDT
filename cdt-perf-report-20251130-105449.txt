@@ -1,0 +1,46 @@
+================================================================================
+                    CDT CACHE READ PERFORMANCE SWEEP REPORT
+================================================================================
+
+Test Date: Sun Nov 30 11:41:52 IST 2025
+Delay Range: 0ms to 10ms (increment: 1ms)
+
+--------------------------------------------------------------------------------
+                              RESULTS TABLE
+--------------------------------------------------------------------------------
+
+IO Delay        Throughput      DCB Read        Brotli Read     Gap       
+(per read)                      Time            Time                      
+--------------------------------------------------------------------------------
+0 (control) ms  ~1 GB/s         26.50 ms        43.60 ms        -17.10 ms 
+0 ms            668 MB/s        28.50 ms        45.20 ms        -16.70 ms 
+1 ms            118 MB/s        192.40 ms       86.30 ms        106.10 ms 
+2 ms            127 MB/s        178.40 ms       84.60 ms        93.80 ms  
+3 ms            123 MB/s        200.00 ms       67.80 ms        132.20 ms 
+4 ms            125 MB/s        188.00 ms       79.70 ms        108.30 ms 
+5 ms            81.6 MB/s       275.60 ms       115.10 ms       160.50 ms 
+6 ms            87.8 MB/s       272.20 ms       110.00 ms       162.20 ms 
+7 ms            82.9 MB/s       267.80 ms       101.00 ms       166.80 ms 
+8 ms            81.8 MB/s       274.40 ms       116.70 ms       157.70 ms 
+9 ms            63.5 MB/s       357.80 ms       131.50 ms       226.30 ms 
+10 ms           64.7 MB/s       357.80 ms       135.50 ms       222.30 ms 
+
+--------------------------------------------------------------------------------
+                              ANALYSIS
+--------------------------------------------------------------------------------
+
+DCB (Dictionary Compressed Brotli) uses the base file as a dictionary.
+Brotli is standard brotli compression without dictionary.
+Gap = DCB Read Time - Brotli Read Time
+
+Positive gap: DCB is slower (requires reading dictionary from cache)
+Negative gap: DCB is faster
+
+As I/O delay increases, the gap typically increases because DCB
+requires additional I/O to read the dictionary from disk cache.
+
+================================================================================
+Results saved to: cdt-perf-results-20251130-105449.csv
+Report saved to: cdt-perf-report-20251130-105449.txt
+================================================================================
+

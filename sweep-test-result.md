@@ -15,6 +15,77 @@ The sweep test is an automated performance benchmarking tool that:
 3. **Runs CDT performance tests** at different I/O delay levels (0-50ms)
 4. **Captures and analyzes results** to understand the impact of I/O latency on CDT performance
 
+## Example Results
+```bash
+T$ ./run-perf-sweep.sh 0 50 10
+
+
+CDT Performance Sweep
+==========================================
+Start Delay: 0ms
+End Delay: 50ms
+Increment: 10ms
+Results file: cdt-perf-results-20251126-162346.csv
+==========================================
+
+
+Running control test (no throttling)...
+[INFO] Running CDT test without I/O throttling...
+[INFO] Control results: DCB=6.30ms, Brotli=8.00ms
+[INFO] Test 1 of 6
+
+Testing with I/O delay: 0ms
+==========================================
+[INFO] Setting up throttled I/O with 0ms delay...
+[INFO] Measured throughput: 665 MB/s
+[INFO] Running CDT performance test...
+[INFO] Results: DCB=8.30ms, Brotli=7.50ms, Gap=.80ms
+[INFO] Test 2 of 6
+
+Testing with I/O delay: 10ms
+==========================================
+[INFO] Setting up throttled I/O with 10ms delay...
+[INFO] Measured throughput: 63.0 MB/s
+[INFO] Running CDT performance test...
+[INFO] Results: DCB=70.00ms, Brotli=48.70ms, Gap=21.30ms
+[INFO] Test 3 of 6
+...
+```
+
+## Report
+
+```
+================================================================================
+                    CDT PERFORMANCE SWEEP REPORT
+================================================================================
+
+Test Date: Wed Nov 26 16:22:33 IST 2025
+Delay Range: 0ms to 50ms (increment: 10ms)
+
+--------------------------------------------------------------------------------
+                              RESULTS TABLE
+--------------------------------------------------------------------------------
+
+IO Delay        Throughput      DCB Read        Brotli Read     Gap       
+(per read)                      Time            Time                      
+--------------------------------------------------------------------------------
+0 (control) ms  ~1 GB/s         6.00 ms         6.40 ms         -.40 ms   
+0 ms            632 MB/s        7.10 ms         5.90 ms         1.20 ms   
+10 ms           64.7 MB/s       74.40 ms        50.40 ms        24.00 ms  
+20 ms           43.9 MB/s       98.80 ms        77.90 ms        20.90 ms  
+30 ms           29.2 MB/s       144.30 ms       112.20 ms       32.10 ms  
+40 ms           23.8 MB/s       176.90 ms       136.20 ms       40.70 ms  
+50 ms           18.7 MB/s       219.30 ms       169.90 ms       49.40 ms  
+
+```
+
+# Analysis
+As I/O delay increases, the gap typically increases because DCB
+requires additional I/O to read the dictionary from disk cache as it is not compressed.
+
+This may justify a change in the user agent to compress the DCB content before saving it to cache 
+and decompress when reading in order to avoid a regression on subsequent cache read of the same resource.
+
 ## How It Works
 
 ### Architecture
@@ -158,77 +229,6 @@ CDT allows browsers to use a previously cached resource as a compression diction
 ### Filesystem Cache Flushing
 
 The test uses `echo 3 > /proc/sys/vm/drop_caches` to ensure cold cache reads. Without this, the kernel's page cache would mask the actual disk I/O latency, invalidating the measurements.
-
-## Example Results
-```bash
-T$ ./run-perf-sweep.sh 0 50 10
-
-
-CDT Performance Sweep
-==========================================
-Start Delay: 0ms
-End Delay: 50ms
-Increment: 10ms
-Results file: cdt-perf-results-20251126-162346.csv
-==========================================
-
-
-Running control test (no throttling)...
-[INFO] Running CDT test without I/O throttling...
-[INFO] Control results: DCB=6.30ms, Brotli=8.00ms
-[INFO] Test 1 of 6
-
-Testing with I/O delay: 0ms
-==========================================
-[INFO] Setting up throttled I/O with 0ms delay...
-[INFO] Measured throughput: 665 MB/s
-[INFO] Running CDT performance test...
-[INFO] Results: DCB=8.30ms, Brotli=7.50ms, Gap=.80ms
-[INFO] Test 2 of 6
-
-Testing with I/O delay: 10ms
-==========================================
-[INFO] Setting up throttled I/O with 10ms delay...
-[INFO] Measured throughput: 63.0 MB/s
-[INFO] Running CDT performance test...
-[INFO] Results: DCB=70.00ms, Brotli=48.70ms, Gap=21.30ms
-[INFO] Test 3 of 6
-...
-```
-
-## Report
-
-```
-================================================================================
-                    CDT PERFORMANCE SWEEP REPORT
-================================================================================
-
-Test Date: Wed Nov 26 16:22:33 IST 2025
-Delay Range: 0ms to 50ms (increment: 10ms)
-
---------------------------------------------------------------------------------
-                              RESULTS TABLE
---------------------------------------------------------------------------------
-
-IO Delay        Throughput      DCB Read        Brotli Read     Gap       
-(per read)                      Time            Time                      
---------------------------------------------------------------------------------
-0 (control) ms  ~1 GB/s         6.00 ms         6.40 ms         -.40 ms   
-0 ms            632 MB/s        7.10 ms         5.90 ms         1.20 ms   
-10 ms           64.7 MB/s       74.40 ms        50.40 ms        24.00 ms  
-20 ms           43.9 MB/s       98.80 ms        77.90 ms        20.90 ms  
-30 ms           29.2 MB/s       144.30 ms       112.20 ms       32.10 ms  
-40 ms           23.8 MB/s       176.90 ms       136.20 ms       40.70 ms  
-50 ms           18.7 MB/s       219.30 ms       169.90 ms       49.40 ms  
-
-```
-
-# Analysis
-As I/O delay increases, the gap typically increases because DCB
-requires additional I/O to read the dictionary from disk cache as it is not compressed.
-
-This may justify a change in the user agent to compress the DCB content before saving it to cache 
-and decompress when reading in order to avoid a regression on subsequent cache read of the same resource.
 
 ## Troubleshooting
 

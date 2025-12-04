@@ -16,6 +16,7 @@ The sweep test is an automated performance benchmarking tool that:
 4. **Captures and analyzes results** to understand the impact of I/O latency on CDT performance
 
 ## Example Results
+(test on Windows 11 WSL 2 Ubuntu env)
 ```bash
 $ ./run-perf-sweep.sh 0 10 1
 
